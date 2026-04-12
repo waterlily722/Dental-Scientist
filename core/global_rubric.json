@@ -1,0 +1,17 @@
+{
+  "version": "dental_scientist_rubric_v1",
+  "weights": {
+    "clinical_alignment": 0.30,
+    "feasibility": 0.20,
+    "protocol_integrity": 0.20,
+    "novelty": 0.15,
+    "robustness": 0.10,
+    "interpretability": 0.05
+  },
+  "hard_reject_rules": [
+    "uses_external_data",
+    "changes_split_protocol",
+    "requires_major_rewrite",
+    "depends_on_unrealistic_augmentation"
+  ]
+}

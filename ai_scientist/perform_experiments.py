@@ -78,7 +78,6 @@ def _build_experiment_command(folder_name, run_num, run_config=None):
         ("--task_name", run_config.get("task_name", "")),
         ("--data_root", run_config.get("data_root", "")),
         ("--split_file", run_config.get("split_file", "")),
-        ("--num_seeds", run_config.get("num_seeds", None)),
     ]
     for flag, value in optional_args:
         if value in (None, ""):

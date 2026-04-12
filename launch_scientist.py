@@ -122,12 +122,6 @@ def parse_arguments():
         help="Optional split_file override forwarded to templates that support it.",
     )
     parser.add_argument(
-        "--num_seeds",
-        type=int,
-        default=None,
-        help="Optional num_seeds override forwarded to templates that support it.",
-    )
-    parser.add_argument(
         "--skip_writeup",
         action="store_true",
         help="Skip the writeup stage.",
@@ -211,6 +205,44 @@ def load_json_file(path: str) -> Dict[str, Any]:
         return {}
 
 
+def load_global_rubric() -> dict:
+    rubric_path = Path(__file__).resolve().parent / "core" / "global_rubric.json"
+    with open(rubric_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _to_float(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def score_idea_with_rubric(idea: dict, rubric: dict) -> float:
+    weights = rubric["weights"]
+
+    scores = {
+        "clinical_alignment": _to_float(idea.get("ClinicalAlignment", 0.0)),
+        "feasibility": _to_float(idea.get("Feasibility", 0.0)),
+        "protocol_integrity": _to_float(idea.get("ProtocolIntegrity", 0.0)),
+        "novelty": _to_float(idea.get("Novelty", 0.0)),
+        "robustness": _to_float(idea.get("Robustness", 0.0)),
+        "interpretability": _to_float(idea.get("Interpretability", 0.0)),
+    }
+
+    return sum(weights[k] * scores.get(k, 0.0) for k in weights)
+
+
+def rank_ideas_with_rubric(ideas: list[dict]) -> list[dict]:
+    rubric = load_global_rubric()
+    ranked = []
+    for idea in ideas:
+        x = dict(idea)
+        x["rubric_score"] = score_idea_with_rubric(x, rubric)
+        ranked.append(x)
+    return sorted(ranked, key=lambda z: z.get("rubric_score", 0.0), reverse=True)
+
+
 def load_baseline_snapshot(base_dir: str) -> Dict[str, Any]:
     baseline_path = osp.join(base_dir, "run_0", "final_info.json")
     baseline_wrapped = load_json_file(baseline_path)
@@ -259,7 +291,6 @@ def build_run_config(args, task_name: str) -> Dict[str, Any]:
         "task_name": task_name,
         "data_root": args.data_root,
         "split_file": args.split_file,
-        "num_seeds": args.num_seeds,
     }
 
 
@@ -606,7 +637,6 @@ def do_idea(
         "task_name": run_config.get("task_name", ""),
         "data_root": run_config.get("data_root", ""),
         "split_file": run_config.get("split_file", ""),
-        "num_seeds": run_config.get("num_seeds", None),
         "skip_writeup": skip_writeup,
         "skip_review": skip_review,
     }
@@ -773,6 +803,8 @@ if __name__ == "__main__":
             model=client_model,
             engine=args.engine,
         )
+
+    ideas = rank_ideas_with_rubric(ideas)
 
     with open(osp.join(base_dir, "ideas.json"), "w", encoding="utf-8") as handle:
         json.dump(ideas, handle, indent=4, ensure_ascii=False)
