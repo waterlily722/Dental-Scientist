@@ -22,7 +22,6 @@ from ai_scientist.perform_experiments import perform_experiments
 from ai_scientist.perform_review import load_paper, perform_improvement, perform_review
 from ai_scientist.perform_writeup import generate_latex, perform_writeup
 from core.dental_context import build_dental_task_context, write_dental_task_context
-from core.memory import append_memory_record, format_memory_for_prompt, retrieve_relevant_memories
 from core.registry import list_task_names
 from core.run_manifest import create_run_manifest, finalize_manifest, update_stage, write_run_manifest
 from core.validators import post_experiment_validate, pre_experiment_validate
@@ -121,12 +120,6 @@ def parse_arguments():
         type=str,
         default="",
         help="Optional split_file override forwarded to templates that support it.",
-    )
-    parser.add_argument(
-        "--memory_dir",
-        type=str,
-        default="",
-        help="Optional directory or .jsonl path used for lightweight lab memory records.",
     )
     parser.add_argument(
         "--num_seeds",
@@ -261,28 +254,6 @@ def flatten_baseline_results(baseline_snapshot: Dict[str, Any]) -> Dict[str, Any
     return flattened
 
 
-def infer_change_axis(idea: Dict[str, Any]) -> str:
-    text = " ".join(str(idea.get(key, "")) for key in ["Name", "Title", "Experiment"]).lower()
-    axis_keywords = {
-        "preprocessing": ["preprocess", "equalize", "normalize", "contrast"],
-        "augmentation_policy": ["augment", "flip", "crop", "jitter", "noise"],
-        "backbone_selection": ["backbone", "encoder", "efficientnet", "resnet", "unet", "heatmap"],
-        "loss_design": ["loss", "focal", "dice", "weight", "calibration"],
-        "threshold_selection": ["threshold", "calibration", "temperature"],
-        "optimization": ["optimizer", "learning rate", "scheduler", "weight decay"],
-    }
-    for axis, keywords in axis_keywords.items():
-        if any(keyword in text for keyword in keywords):
-            return axis
-    return "general_template_modification"
-
-
-def resolve_memory_dir(args, results_dir: str) -> str:
-    if args.memory_dir:
-        return args.memory_dir
-    return osp.join(results_dir, "memory")
-
-
 def build_run_config(args, task_name: str) -> Dict[str, Any]:
     return {
         "task_name": task_name,
@@ -318,7 +289,6 @@ def prepare_run_folder(
     idea: Dict[str, Any],
     cli_args: Dict[str, Any],
     baseline_snapshot: Dict[str, Any],
-    memory_hits: list[Dict[str, Any]] | None = None,
 ) -> Tuple[str, str, Dict[str, Any]]:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     idea_name = f"{timestamp}_{idea['Name']}"
@@ -342,7 +312,6 @@ def prepare_run_folder(
         base_dir=base_dir,
         cli_args=cli_args,
         baseline_snapshot=baseline_snapshot,
-        memory_hits=memory_hits,
     )
     write_run_manifest(folder_name, manifest)
     return idea_name, folder_name, manifest
@@ -554,41 +523,6 @@ def summarize_experiment_outcome(folder_name: str, baseline_snapshot: Dict[str, 
     return summary
 
 
-def append_memory_after_experiment(
-    *,
-    memory_dir: str,
-    idea: Dict[str, Any],
-    folder_name: str,
-    experiment_success: bool,
-    baseline_snapshot: Dict[str, Any],
-    post_validation: Dict[str, Any] | None,
-) -> str:
-    summary = summarize_experiment_outcome(folder_name, baseline_snapshot)
-    failure_reason = ""
-    if not experiment_success:
-        failure_reason = "experiment_stage_failed"
-    elif post_validation and post_validation.get("status") == "fail":
-        failure_reason = "post_validation_failed"
-
-    lesson = "Completed experiment stage without protocol violations."
-    if failure_reason:
-        lesson = "Keep the change narrower and preserve benchmark/template assumptions."
-    elif summary.get("primary_metric_name"):
-        lesson = f"Track {summary['primary_metric_name']} consistently and compare against the baseline scorecard."
-
-    append_memory_record(
-        memory_dir,
-        {
-            "idea_name": idea.get("Name", ""),
-            "change_axis": infer_change_axis(idea),
-            "success": bool(experiment_success and (post_validation or {}).get("status", "pass") != "fail"),
-            "failure_reason": failure_reason,
-            "lesson": lesson,
-        },
-    )
-    return lesson
-
-
 def finalize_run_manifest(
     *,
     folder_name: str,
@@ -620,8 +554,6 @@ def worker(
     engine,
     gpu_id,
     run_config,
-    experiment_name,
-    memory_dir,
     skip_writeup,
     skip_review,
 ):
@@ -636,7 +568,6 @@ def worker(
             base_dir=base_dir,
             results_dir=results_dir,
             idea=idea,
-            experiment_name=experiment_name,
             model=model,
             client=client,
             client_model=client_model,
@@ -645,7 +576,6 @@ def worker(
             review_model=review_model,
             engine=engine,
             run_config=run_config,
-            memory_dir=memory_dir,
             skip_writeup=skip_writeup,
             skip_review=skip_review,
             log_file=True,
@@ -659,7 +589,6 @@ def do_idea(
     base_dir,
     results_dir,
     idea,
-    experiment_name,
     model,
     client,
     client_model,
@@ -668,17 +597,11 @@ def do_idea(
     review_model,
     engine,
     run_config,
-    memory_dir,
     skip_writeup,
     skip_review,
     log_file=False,
 ):
     baseline_snapshot = load_baseline_snapshot(base_dir)
-    memory_hits = retrieve_relevant_memories(
-        memory_dir,
-        query_text=" ".join([experiment_name, run_config.get("task_name", ""), idea.get("Title", ""), idea.get("Experiment", "")]),
-        limit=5,
-    )
     cli_args = {
         "task_name": run_config.get("task_name", ""),
         "data_root": run_config.get("data_root", ""),
@@ -693,7 +616,6 @@ def do_idea(
         idea,
         cli_args,
         baseline_snapshot,
-        memory_hits=memory_hits,
     )
 
     original_stdout = None
@@ -724,17 +646,6 @@ def do_idea(
             manifest=manifest,
         )
         stage_results["experiment_stage"] = experiment_stage
-        memory_lesson = append_memory_after_experiment(
-            memory_dir=memory_dir,
-            idea=idea,
-            folder_name=folder_name,
-            experiment_success=experiment_success,
-            baseline_snapshot=baseline_snapshot,
-            post_validation=experiment_stage.get("post_validation"),
-        )
-        stage_results["memory"] = {"lesson": memory_lesson}
-        update_stage(manifest, "memory", status="completed", details=stage_results["memory"])
-        write_run_manifest(folder_name, manifest)
         if not experiment_success:
             finalize_run_manifest(
                 folder_name=folder_name,
@@ -846,13 +757,6 @@ if __name__ == "__main__":
     ensure_required_baseline(base_dir, args.experiment)
     prepare_template_context(args, base_dir, task_name)
 
-    memory_dir = resolve_memory_dir(args, results_dir)
-    memory_hits = retrieve_relevant_memories(
-        memory_dir,
-        query_text=" ".join([args.experiment, task_name]),
-        limit=5,
-    )
-    memory_context = format_memory_for_prompt(memory_hits)
     ideas = generate_ideas(
         base_dir,
         client=client,
@@ -860,7 +764,6 @@ if __name__ == "__main__":
         skip_generation=args.skip_idea_generation,
         max_num_generations=args.num_ideas,
         num_reflections=NUM_REFLECTIONS,
-        memory_context=memory_context,
     )
     if not args.skip_novelty_check:
         ideas = check_idea_novelty(
@@ -899,8 +802,6 @@ if __name__ == "__main__":
                     args.engine,
                     gpu_id,
                     run_config,
-                    args.experiment,
-                    memory_dir,
                     args.skip_writeup,
                     args.skip_review,
                 ),
@@ -930,7 +831,6 @@ if __name__ == "__main__":
                     base_dir=base_dir,
                     results_dir=results_dir,
                     idea=idea,
-                    experiment_name=args.experiment,
                     model=args.model,
                     client=client,
                     client_model=client_model,
@@ -939,7 +839,6 @@ if __name__ == "__main__":
                     review_model=args.review_model,
                     engine=args.engine,
                     run_config=run_config,
-                    memory_dir=memory_dir,
                     skip_writeup=args.skip_writeup,
                     skip_review=args.skip_review,
                 )

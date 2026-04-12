@@ -27,7 +27,6 @@ def create_run_manifest(
     base_dir: str,
     cli_args: Dict[str, Any],
     baseline_snapshot: Dict[str, Any],
-    memory_hits: list[Dict[str, Any]] | None = None,
 ) -> Dict[str, Any]:
     return {
         "schema_version": 1,
@@ -39,7 +38,6 @@ def create_run_manifest(
         "base_dir": base_dir,
         "cli_args": _jsonable(deepcopy(cli_args)),
         "baseline_snapshot": _jsonable(deepcopy(baseline_snapshot)),
-        "memory_hits": _jsonable(deepcopy(memory_hits or [])),
         "status": "initialized",
         "stages": {},
         "artifacts": {},

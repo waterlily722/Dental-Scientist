@@ -26,11 +26,6 @@ Structured task context:
 {task_context_json}
 ```
 
-Relevant historical lab notes:
-'''
-{memory_context}
-'''
-
 Here are the ideas that you have already generated:
 
 '''
@@ -115,7 +110,6 @@ def generate_ideas(
         skip_generation=False,
         max_num_generations=20,
         num_reflections=5,
-        memory_context="No relevant historical lab notes found.",
 ):
     if skip_generation:
         # Load existing ideas from file
@@ -162,7 +156,6 @@ def generate_ideas(
                     code=code,
                     template_notes=template_notes,
                     task_context_json=task_context_json,
-                    memory_context=memory_context,
                     prev_ideas_string=prev_ideas_string,
                     num_reflections=num_reflections,
                 ),
@@ -224,7 +217,6 @@ def generate_next_idea(
         prev_idea_archive=[],
         num_reflections=5,
         max_attempts=10,
-        memory_context="No relevant historical lab notes found.",
 ):
     idea_archive = prev_idea_archive
     original_archive_size = len(idea_archive)
@@ -263,7 +255,6 @@ def generate_next_idea(
                         code=code,
                         template_notes=template_notes,
                         task_context_json=task_context_json,
-                        memory_context=memory_context,
                         prev_ideas_string=prev_ideas_string,
                         num_reflections=num_reflections,
                     )
