@@ -56,6 +56,38 @@ def _stderr_tail(stderr_output: str) -> str:
     return "..." + stderr_output[-MAX_STDERR_OUTPUT:]
 
 
+def _supports_cli_arg(folder_name: str, flag: str) -> bool:
+    experiment_path = osp.join(folder_name, "experiment.py")
+    try:
+        with open(experiment_path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+    except OSError:
+        return False
+    return flag in source
+
+
+def _build_experiment_command(folder_name, run_num, run_config=None):
+    command = [
+        "python",
+        "experiment.py",
+        "--out_dir",
+        f"run_{run_num}",
+    ]
+    run_config = run_config or {}
+    optional_args = [
+        ("--task_name", run_config.get("task_name", "")),
+        ("--data_root", run_config.get("data_root", "")),
+        ("--split_file", run_config.get("split_file", "")),
+        ("--num_seeds", run_config.get("num_seeds", None)),
+    ]
+    for flag, value in optional_args:
+        if value in (None, ""):
+            continue
+        if _supports_cli_arg(folder_name, flag):
+            command.extend([flag, str(value)])
+    return command
+
+
 def run_static_checks(folder_name, timeout=120):
     cwd = osp.abspath(folder_name)
     command = ["python", "-m", "py_compile", "experiment.py", "plot.py"]
@@ -77,9 +109,9 @@ def run_static_checks(folder_name, timeout=120):
         return 1, f"Static validation timed out after {timeout} seconds"
 
 
-def run_precheck(folder_name, timeout=600):
+def run_precheck(folder_name, timeout=600, run_config=None):
     cwd = osp.abspath(folder_name)
-    command = ["python", "experiment.py", "--out_dir=run_precheck"]
+    command = _build_experiment_command(folder_name, "precheck", run_config=run_config)
     env = os.environ.copy()
     env["AI_SCIENTIST_PRECHECK"] = "1"
     env.setdefault("AI_SCIENTIST_PRECHECK_MAX_SAMPLES", "48")
@@ -116,7 +148,7 @@ def run_precheck(folder_name, timeout=600):
 
 
 # RUN EXPERIMENT
-def run_experiment(folder_name, run_num, timeout=7200):
+def run_experiment(folder_name, run_num, timeout=7200, run_config=None):
     cwd = osp.abspath(folder_name)
     # COPY CODE SO WE CAN SEE IT.
     shutil.copy(
@@ -130,16 +162,12 @@ def run_experiment(folder_name, run_num, timeout=7200):
 
     task_context = _load_task_context(folder_name)
     if task_context.get("template") == "dental_cls_v1":
-        precheck_return_code, precheck_prompt = run_precheck(folder_name)
+        precheck_return_code, precheck_prompt = run_precheck(folder_name, run_config=run_config)
         if precheck_return_code != 0:
             return precheck_return_code, precheck_prompt
 
     # LAUNCH COMMAND
-    command = [
-        "python",
-        "experiment.py",
-        f"--out_dir=run_{run_num}",
-    ]
+    command = _build_experiment_command(folder_name, run_num, run_config=run_config)
     try:
         result = subprocess.run(
             command, cwd=cwd, stderr=subprocess.PIPE, text=True, timeout=timeout
@@ -211,7 +239,7 @@ def run_plotting(folder_name, timeout=600):
 
 
 # PERFORM EXPERIMENTS
-def perform_experiments(idea, folder_name, coder, baseline_results) -> bool:
+def perform_experiments(idea, folder_name, coder, baseline_results, run_config=None) -> bool:
     ## RUN EXPERIMENT
     current_iter = 0
     run = 1
@@ -237,7 +265,7 @@ Structured task context:
         print(coder_out)
         if "ALL_COMPLETED" in coder_out:
             break
-        return_code, next_prompt = run_experiment(folder_name, run)
+        return_code, next_prompt = run_experiment(folder_name, run, run_config=run_config)
         if return_code == 0:
             run += 1
             current_iter = 0
