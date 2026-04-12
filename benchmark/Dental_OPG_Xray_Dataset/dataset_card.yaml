@@ -1,0 +1,23 @@
+name: "Dental_OPG_Xray_Dataset"
+data_root: "data/Dental_OPG_Xray_Dataset"
+split_file: "benchmark/Dental_OPG_Xray_Dataset/splits.json"
+
+modality: "PAN"
+task_type: "detection"
+label_level: "instance-level"
+target_name: "disease_name"
+class_names: ["龋齿", "感染", "阻生齿", "牙齿折裂", "残冠/残根", "健康牙齿"]
+
+clinical_goal: "在全景片上进行牙病灶定位与分型，辅助门诊初筛。"
+primary_metric: "mAP"
+secondary_metrics: ["mAP50", "recall", "precision"]
+
+augmentation:
+  allowed: ["random_resized_crop", "rotation", "brightness_contrast"]
+  disallowed: ["left_right_flip_when_tooth_id_used"]
+
+imbalance:
+  expected: likely
+
+notes:
+  - "标签同时含 healthy 类，训练时可与病变类联合建模。"

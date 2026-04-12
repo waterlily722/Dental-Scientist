@@ -1,0 +1,24 @@
+name: "Dentistry_Computer_Vision_Dataset"
+data_root: "data/Dentistry_Computer_Vision_Dataset"
+split_file: "benchmark/Dentistry_Computer_Vision_Dataset/splits.json"
+
+modality: "PAN"
+task_type: "multi-task(detection+segmentation)"
+label_level: "instance-level"
+target_name: "tooth_and_finding"
+class_names: ["牙位编号", "牙冠", "种植体", "根管治疗"]
+
+clinical_goal: "同时建模牙位、解剖结构和治疗相关征象，支持结构化报告生成。"
+primary_metric: "mAP"
+secondary_metrics: ["mAP50", "recall", "precision"]
+
+augmentation:
+  allowed: ["random_resized_crop", "rotation", "brightness_contrast"]
+  disallowed: ["left_right_flip_when_tooth_number_used"]
+
+imbalance:
+  expected: likely
+
+notes:
+  - "同一图像可同时包含 tooth/disease/therapy 三类标签。"
+  - "牙位编号通常为数字类目，建议与病灶头解耦建模。"

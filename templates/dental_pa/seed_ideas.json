@@ -1,0 +1,26 @@
+[
+  {
+    "Name": "aug_policy_ablation",
+    "Title": "Ablating Data Augmentation Policy for Periapical Caries Classification",
+    "Experiment": "Compare three lightweight augmentation settings in the current training pipeline: minimal augmentation, baseline augmentation, and stronger augmentation. Keep the model and optimizer fixed, then report AUC/F1/sensitivity/specificity to identify the most stable policy.",
+    "Interestingness": 7,
+    "Feasibility": 10,
+    "Novelty": 4
+  },
+  {
+    "Name": "imbalance_loss_comparison",
+    "Title": "Class-Imbalance Loss Comparison for Periapical Caries Detection",
+    "Experiment": "Benchmark standard cross-entropy, weighted cross-entropy, and focal loss under the same architecture and training budget. Focus on minority-class recall and F1 while tracking whether AUC remains stable.",
+    "Interestingness": 8,
+    "Feasibility": 9,
+    "Novelty": 5
+  },
+  {
+    "Name": "threshold_selection",
+    "Title": "Decision-Threshold Optimization for Clinically Oriented Operating Points",
+    "Experiment": "Keep the trained model fixed and tune prediction threshold on the validation set to target higher sensitivity vs higher specificity operating points. Report threshold-metric curves and compare against the default 0.5 threshold.",
+    "Interestingness": 6,
+    "Feasibility": 10,
+    "Novelty": 4
+  }
+]

@@ -1,0 +1,99 @@
+{
+  "template": "dental_det_v1",
+  "research_domain": "dental_imaging",
+  "research_mode": "task_driven_exploration",
+  "resource_profile": "low_resource_demo",
+  "task_name": "dental_radiography",
+  "dataset_name": "dental_radiography",
+  "task_spec": {
+    "task_name": "dental_radiography",
+    "modality": "PAN",
+    "task_type": "detection",
+    "label_level": "instance-level",
+    "target_name": "disease_name",
+    "primary_metric": "mAP",
+    "secondary_metrics": [
+      "mAP50",
+      "recall",
+      "precision"
+    ],
+    "recommended_preprocess_mode": "auto_equalize",
+    "recommended_image_size": 224,
+    "allowed_augmentations": [
+      "random_resized_crop",
+      "rotation",
+      "brightness_contrast"
+    ],
+    "disallowed_augmentations": [
+      "left_right_flip_when_quadrant_sensitive"
+    ],
+    "imbalance_expected": "likely",
+    "notes": [
+      "原始标签来自 CSV bbox 标注，适合目标检测范式。"
+    ]
+  },
+  "data_paths": {
+    "data_root": "/oral_llm/xiweidai/AI-Scientist/data/Dental_Radiography",
+    "split_file": "/oral_llm/xiweidai/AI-Scientist/benchmark/Dental_Radiography/splits.json"
+  },
+  "split_counts": {
+    "train": 1075,
+    "val": 121,
+    "test": 73
+  },
+  "class_distribution": {
+    "train": {
+      "龋齿": 230,
+      "充填体": 667,
+      "阻生牙": 132,
+      "种植体": 46
+    },
+    "val": {
+      "龋齿": 23,
+      "充填体": 82,
+      "阻生牙": 12,
+      "种植体": 4
+    },
+    "test": {
+      "龋齿": 12,
+      "充填体": 52,
+      "阻生牙": 8,
+      "种植体": 1
+    }
+  },
+  "baseline": {
+    "available": false,
+    "path": "/oral_llm/xiweidai/AI-Scientist/templates/dental_det_v1/run_0/final_info.json",
+    "primary_metric_name": "",
+    "best_val_primary": null,
+    "best_test_primary": null
+  },
+  "recommended_defaults": {
+    "preprocess_mode": "auto_equalize",
+    "backbone_name": "efficientnet_b0",
+    "loss_name": "weighted_ce",
+    "use_pretrained": true
+  },
+  "allowed_modification_axes": [
+    "preprocessing",
+    "augmentation_policy",
+    "backbone_selection_within_existing_choices",
+    "loss_design",
+    "imbalance_handling",
+    "threshold_selection",
+    "calibration_analysis"
+  ],
+  "discouraged_axes": [
+    "changing_benchmark_split_protocol",
+    "using_external_data",
+    "task_specific_label_leakage",
+    "augmentations_forbidden_by_benchmark_policy",
+    "unbounded_model_scaling"
+  ],
+  "demo_success_criteria": [
+    "idea is clinically meaningful for dental imaging",
+    "idea can be implemented inside the current template",
+    "idea preserves benchmark fairness and reproducibility",
+    "idea fits a low-resource experimental budget"
+  ]
+}

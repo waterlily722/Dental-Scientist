@@ -399,7 +399,7 @@ Ensure the citation is well-integrated into the text.'''
 
 # PERFORM WRITEUP
 def perform_writeup(
-        idea, folder_name, coder, cite_client, cite_model, num_cite_rounds=20, engine="semanticscholar"
+        idea, folder_name, coder, cite_client, cite_model, num_cite_rounds=8, engine="semanticscholar"
 ):
     # CURRENTLY ASSUMES LATEX
     abstract_prompt = f"""We've provided the `latex/template.tex` file to the project. We will be filling it in section by section.

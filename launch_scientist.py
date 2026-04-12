@@ -12,12 +12,15 @@ from aider.coders import Coder
 from aider.io import InputOutput
 from aider.models import Model
 from datetime import datetime
+from pathlib import Path
 
 from ai_scientist.generate_ideas import generate_ideas, check_idea_novelty
 from ai_scientist.llm import create_client, AVAILABLE_LLMS
 from ai_scientist.perform_experiments import perform_experiments
 from ai_scientist.perform_review import perform_review, load_paper, perform_improvement
 from ai_scientist.perform_writeup import perform_writeup, generate_latex
+from core.dental_context import write_dental_task_context
+from core.registry import list_task_names
 
 NUM_REFLECTIONS = 3
 
@@ -42,15 +45,22 @@ def parse_arguments():
     parser.add_argument(
         "--experiment",
         type=str,
-        default="nanoGPT",
+        default="dental_cls_v1",
         help="Experiment to run AI Scientist on.",
     )
     parser.add_argument(
         "--model",
         type=str,
-        default="claude-3-5-sonnet-20240620",
+        default="qwen3-max-2026-01-23",
         choices=AVAILABLE_LLMS,
         help="Model to use for AI Scientist.",
+    )
+    parser.add_argument(
+        "--review-model",
+        type=str,
+        default="qwen3-max-2026-01-23",
+        choices=AVAILABLE_LLMS,
+        help="Model to use for paper review.",
     )
     parser.add_argument(
         "--writeup",
@@ -89,6 +99,12 @@ def parse_arguments():
         choices=["semanticscholar", "openalex"],
         help="Scholar engine to use.",
     )
+    parser.add_argument(
+        "--task_name",
+        type=str,
+        default="",
+        help="Optional benchmark task name override for templates that support task-driven execution.",
+    )
     return parser.parse_args()
 
 
@@ -118,20 +134,66 @@ def check_latex_dependencies():
         return False
     
     return True
+
+
+def resolve_aider_model(model_name: str) -> str:
+    if model_name == "deepseek-coder-v2-0724":
+        return "deepseek/deepseek-coder"
+    if model_name == "deepseek-reasoner":
+        return "deepseek/deepseek-reasoner"
+    if model_name == "llama3.1-405b":
+        return "openrouter/meta-llama/llama-3.1-405b-instruct"
+    if "qwen" in model_name:
+        api_key = os.getenv("DASHSCOPE_API_KEY") or os.getenv("QWEN_API_KEY")
+        if api_key:
+            os.environ.setdefault("OPENAI_API_KEY", api_key)
+        os.environ.setdefault(
+            "OPENAI_API_BASE",
+            os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+        )
+        return f"openai/{model_name}"
+    return model_name
+
+
+def resolve_default_task_name(experiment: str, task_name: str) -> str:
+    if task_name:
+        return task_name
+    available = set(list_task_names())
+    preferred_by_template = {
+        "dental_cls_v1": "dental_caries_classificationv3",
+        "dental_det_v1": "Dental_Radiography",
+        "dental_seg_v1": "AlphaDent",
+        "dental_keypoint_v1": "Dentistry_Computer_Vision_Dataset",
+    }
+    preferred = preferred_by_template.get(experiment, "")
+    if preferred and preferred in available:
+        return preferred
+    return task_name
+
+
+def ensure_required_baseline(base_dir: str, experiment: str) -> None:
+    baseline_path = osp.join(base_dir, "run_0", "final_info.json")
+    if experiment == "dental_cls_v1" and not osp.exists(baseline_path):
+        raise FileNotFoundError(
+            f"Baseline required for {experiment} but missing: {baseline_path}. "
+            "Please run `python experiment.py --out_dir run_0` in the template first."
+        )
     
 def worker(
         queue,
         base_dir,
         results_dir,
         model,
-        client,
-        client_model,
         writeup,
         improvement,
+        review_model,
+        engine,
         gpu_id,
 ):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     print(f"Worker {gpu_id} started.")
+    # Create API clients in child process after fork to avoid sharing stale sockets.
+    client, client_model = create_client(model)
     while True:
         idea = queue.get()
         if idea is None:
@@ -145,6 +207,8 @@ def worker(
             client_model,
             writeup,
             improvement,
+            review_model,
+            engine,
             log_file=True,
         )
         print(f"Completed idea: {idea['Name']}, Success: {success}")
@@ -160,6 +224,8 @@ def do_idea(
         client_model,
         writeup,
         improvement,
+        review_model,
+        engine,
         log_file=False,
 ):
     ## CREATE PROJECT FOLDER
@@ -169,11 +235,16 @@ def do_idea(
     assert not osp.exists(folder_name), f"Folder {folder_name} already exists."
     destination_dir = folder_name
     shutil.copytree(base_dir, destination_dir, dirs_exist_ok=True)
-    with open(osp.join(base_dir, "run_0", "final_info.json"), "r") as f:
-        baseline_results = json.load(f)
-    # Check if baseline_results is a dictionary before extracting means
-    if isinstance(baseline_results, dict):
-        baseline_results = {k: v["means"] for k, v in baseline_results.items()}
+    baseline_path = osp.join(base_dir, "run_0", "final_info.json")
+    if osp.exists(baseline_path):
+        with open(baseline_path, "r") as f:
+            baseline_results = json.load(f)
+        # Check if baseline_results is a dictionary before extracting means
+        if isinstance(baseline_results, dict):
+            baseline_results = {k: v["means"] for k, v in baseline_results.items()}
+    else:
+        print(f"Warning: baseline file not found at {baseline_path}; continuing with empty baseline results.")
+        baseline_results = {}
     exp_file = osp.join(folder_name, "experiment.py")
     vis_file = osp.join(folder_name, "plot.py")
     notes = osp.join(folder_name, "notes.txt")
@@ -198,14 +269,7 @@ def do_idea(
         io = InputOutput(
             yes=True, chat_history_file=f"{folder_name}/{idea_name}_aider.txt"
         )
-        if model == "deepseek-coder-v2-0724":
-            main_model = Model("deepseek/deepseek-coder")
-        elif model == "deepseek-reasoner":
-            main_model = Model("deepseek/deepseek-reasoner")
-        elif model == "llama3.1-405b":
-            main_model = Model("openrouter/meta-llama/llama-3.1-405b-instruct")
-        else:
-            main_model = Model(model)
+        main_model = Model(resolve_aider_model(model))
         coder = Coder.create(
             main_model=main_model,
             fnames=fnames,
@@ -234,14 +298,7 @@ def do_idea(
         if writeup == "latex":
             writeup_file = osp.join(folder_name, "latex", "template.tex")
             fnames = [exp_file, writeup_file, notes]
-            if model == "deepseek-coder-v2-0724":
-                main_model = Model("deepseek/deepseek-coder")
-            elif model == "deepseek-reasoner":
-                main_model = Model("deepseek/deepseek-reasoner")
-            elif model == "llama3.1-405b":
-                main_model = Model("openrouter/meta-llama/llama-3.1-405b-instruct")
-            else:
-                main_model = Model(model)
+            main_model = Model(resolve_aider_model(model))
             coder = Coder.create(
                 main_model=main_model,
                 fnames=fnames,
@@ -251,7 +308,7 @@ def do_idea(
                 edit_format="diff",
             )
             try:
-                perform_writeup(idea, folder_name, coder, client, client_model, engine=args.engine)
+                perform_writeup(idea, folder_name, coder, client, client_model, engine=engine)
             except Exception as e:
                 print(f"Failed to perform writeup: {e}")
                 return False
@@ -264,14 +321,15 @@ def do_idea(
         ## REVIEW PAPER
         if writeup == "latex":
             try:
+                review_client, review_client_model = create_client(review_model)
                 paper_text = load_paper(f"{folder_name}/{idea['Name']}.pdf")
                 review = perform_review(
                     paper_text,
-                    model="gpt-4o-2024-05-13",
-                    client=openai.OpenAI(),
-                    num_reflections=5,
+                    model=review_client_model,
+                    client=review_client,
+                    num_reflections=3,
                     num_fs_examples=1,
-                    num_reviews_ensemble=5,
+                    num_reviews_ensemble=3,
                     temperature=0.1,
                 )
                 # Store the review in separate review.txt file
@@ -286,6 +344,7 @@ def do_idea(
             print_time()
             print(f"*Starting Improvement*")
             try:
+                review_client, review_client_model = create_client(review_model)
                 perform_improvement(review, coder)
                 generate_latex(
                     coder, folder_name, f"{folder_name}/{idea['Name']}_improved.pdf"
@@ -293,11 +352,11 @@ def do_idea(
                 paper_text = load_paper(f"{folder_name}/{idea['Name']}_improved.pdf")
                 review = perform_review(
                     paper_text,
-                    model="gpt-4o-2024-05-13",
-                    client=openai.OpenAI(),
-                    num_reflections=5,
+                    model=review_client_model,
+                    client=review_client,
+                    num_reflections=3,
                     num_fs_examples=1,
-                    num_reviews_ensemble=5,
+                    num_reviews_ensemble=3,
                     temperature=0.1,
                 )
                 # Store the review in separate review.txt file
@@ -340,6 +399,16 @@ if __name__ == "__main__":
 
     base_dir = osp.join("templates", args.experiment)
     results_dir = osp.join("results", args.experiment)
+    task_name = resolve_default_task_name(args.experiment, args.task_name)
+    ensure_required_baseline(base_dir, args.experiment)
+    dental_templates = {"dental_cls_v1", "dental_det_v1", "dental_seg_v1", "dental_keypoint_v1"}
+    if args.experiment in dental_templates:
+        context_path = write_dental_task_context(
+            repo_root=Path(".").resolve(),
+            base_dir=Path(base_dir).resolve(),
+            task_name=task_name,
+        )
+        print(f"Prepared dental task context at: {context_path}")
     ideas = generate_ideas(
         base_dir,
         client=client,
@@ -379,25 +448,33 @@ if __name__ == "__main__":
                     base_dir,
                     results_dir,
                     args.model,
-                    client,
-                    client_model,
                     args.writeup,
                     args.improvement,
+                    args.review_model,
+                    args.engine,
                     gpu_id,
                 ),
             )
             p.start()
             time.sleep(150)
             processes.append(p)
+        try:
+            # Signal workers to exit after work queue is drained.
+            for _ in range(args.parallel):
+                queue.put(None)
 
-        # Signal workers to exit
-        for _ in range(args.parallel):
-            queue.put(None)
+            for p in processes:
+                p.join()
 
-        for p in processes:
-            p.join()
-
-        print("All parallel processes completed.")
+            print("All parallel processes completed.")
+        except KeyboardInterrupt:
+            print("KeyboardInterrupt received. Terminating worker processes...")
+            for p in processes:
+                if p.is_alive():
+                    p.terminate()
+            for p in processes:
+                p.join()
+            print("Workers terminated.")
     else:
         for idea in novel_ideas:
             print(f"Processing idea: {idea['Name']}")
@@ -411,6 +488,8 @@ if __name__ == "__main__":
                     client_model,
                     args.writeup,
                     args.improvement,
+                    args.review_model,
+                    args.engine,
                 )
                 print(f"Completed idea: {idea['Name']}, Success: {success}")
             except Exception as e:

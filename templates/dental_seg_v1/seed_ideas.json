@@ -1,0 +1,18 @@
+[
+  {
+    "Name": "boundary_aware_segmentation_loss",
+    "Title": "Can boundary-aware losses improve dental segmentation quality on thin or ambiguous structures?",
+    "Experiment": "Compare the baseline segmentation objective against variants that emphasize boundary quality or small-structure overlap. Test whether these changes improve segmentation performance on clinically important edges without destabilizing training.",
+    "Interestingness": 8,
+    "Feasibility": 8,
+    "Novelty": 7
+  },
+  {
+    "Name": "preprocessing_for_mask_stability",
+    "Title": "Does radiograph-aware preprocessing improve mask stability in dental segmentation?",
+    "Experiment": "Compare identity preprocessing against grayscale, autocontrast, or equalization-style preprocessing for dental segmentation. Evaluate whether cleaner intensity normalization improves overlap and boundary consistency, especially on noisy or low-contrast images.",
+    "Interestingness": 8,
+    "Feasibility": 9,
+    "Novelty": 6
+  }
+]

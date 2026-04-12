@@ -1,0 +1,18 @@
+[
+  {
+    "Name": "geometry_consistent_landmarks",
+    "Title": "Can geometry-aware training improve consistency of dental landmark prediction?",
+    "Experiment": "Compare the baseline landmark model against a variant that adds simple geometric consistency constraints or decoding rules. Test whether these changes reduce unstable landmark predictions on ambiguous or partially occluded teeth.",
+    "Interestingness": 8,
+    "Feasibility": 7,
+    "Novelty": 7
+  },
+  {
+    "Name": "uncertainty_for_ambiguous_landmarks",
+    "Title": "Does uncertainty estimation help identify unreliable dental keypoint predictions?",
+    "Experiment": "Add a lightweight uncertainty estimate or confidence score for predicted landmarks and evaluate whether low-confidence predictions correspond to hard cases such as overlap, blur, or missing structure. This tests whether the model can support safer downstream tooth analysis.",
+    "Interestingness": 8,
+    "Feasibility": 8,
+    "Novelty": 7
+  }
+]

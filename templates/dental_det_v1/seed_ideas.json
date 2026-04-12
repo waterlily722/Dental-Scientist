@@ -1,0 +1,18 @@
+[
+  {
+    "Name": "small_lesion_recall_boost",
+    "Title": "Can targeted training choices improve small-lesion recall in dental detection?",
+    "Experiment": "Compare the baseline detector against variants that emphasize small-object learning through safer resizing, sampling, or loss weighting choices. Measure whether recall improves on small or visually subtle dental findings without an unacceptable rise in false positives.",
+    "Interestingness": 8,
+    "Feasibility": 8,
+    "Novelty": 7
+  },
+  {
+    "Name": "confidence_aware_detection_filtering",
+    "Title": "Do confidence-aware filtering rules improve clinical usability of dental detectors?",
+    "Experiment": "Study whether post-hoc confidence filtering or simple score calibration can reduce false positives while preserving clinically important lesion recall. Compare default detector outputs against validation-tuned confidence rules and report both localization quality and operating-point behavior.",
+    "Interestingness": 8,
+    "Feasibility": 9,
+    "Novelty": 7
+  }
+]

@@ -1,0 +1,21 @@
+Dental classification template.
+
+This template is a compact low-resource research sandbox for benchmarked dental image classification.
+
+Focus on ideas that are clinically meaningful, easy to execute, and easy to compare against the baseline.
+
+Recommended idea families:
+- quality-aware preprocessing for radiographs
+- imbalance-aware training objectives
+- calibration and threshold selection for clinically aligned operating points
+- robustness under safe image perturbations
+- lightweight backbone trade-offs under fixed data and splits
+
+Avoid or treat as high-risk:
+- any change that alters benchmark fairness or split integrity
+- using external datasets, pseudo-labels, or external foundation models
+- label-breaking augmentations or unrealistic geometric transforms
+- ideas that require major rewrites of the training stack
+- ideas that depend on large compute budgets
+
+A strong contribution is not only a better metric. It can also be a safer operating point, stronger calibration, or a clearer study of what helps on dental radiographs and why.

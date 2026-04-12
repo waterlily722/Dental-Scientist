@@ -1,0 +1,21 @@
+Dental keypoint template.
+
+This template is a compact low-resource research sandbox for benchmarked dental keypoint and landmark estimation.
+
+Focus on ideas that are clinically meaningful, easy to execute, and easy to compare against the baseline.
+
+Recommended idea families:
+- improving landmark precision and stability
+- geometry-aware losses or decoding
+- radiograph-aware preprocessing for landmark visibility
+- uncertainty estimation for ambiguous tooth landmarks
+- lightweight keypoint model trade-offs under fixed data and splits
+
+Avoid or treat as high-risk:
+- any change that alters benchmark fairness or split integrity
+- using external datasets, pseudo-labels, or external foundation models
+- label-breaking augmentations or unrealistic geometry
+- ideas that require major rewrites of the keypoint stack
+- ideas that depend on large compute budgets
+
+A strong contribution is not only a lower localization error. It can also be more stable landmarking on hard teeth, better geometric consistency, or a clearer study of what improves dental keypoint estimation and why.

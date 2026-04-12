@@ -1,0 +1,21 @@
+Dental detection template.
+
+This template is a compact low-resource research sandbox for benchmarked dental detection.
+
+Focus on ideas that are clinically meaningful, easy to execute, and easy to compare against the baseline.
+
+Recommended idea families:
+- improving small-lesion recall
+- radiograph-aware preprocessing for localization
+- imbalance-aware detection losses or sampling
+- confidence calibration and false-positive control
+- lightweight detector trade-offs under fixed data and splits
+
+Avoid or treat as high-risk:
+- any change that alters benchmark fairness or split integrity
+- using external datasets, pseudo-labels, or external foundation models
+- label-breaking augmentations or unrealistic geometry
+- ideas that require major rewrites of the detection stack
+- ideas that depend on large compute budgets
+
+A strong contribution is not only a better mAP. It can also be stronger recall on hard findings, fewer false positives, or a clearer study of what improves dental lesion localization and why.

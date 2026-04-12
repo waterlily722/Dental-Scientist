@@ -1,0 +1,24 @@
+name: "AlphaDent"
+data_root: "data/AlphaDent"
+split_file: "benchmark/AlphaDent/splits.json"
+
+modality: "IOP"
+task_type: "detection+segmentation"
+label_level: "instance-level"
+target_name: "dental_findings"
+class_names: ["磨损", "充填体", "牙冠", "龋齿"]
+
+clinical_goal: "在口内照片中定位龋损/修复体/磨损等病灶，支持早筛与复诊对比。"
+primary_metric: "mAP"
+secondary_metrics: ["mAP50", "recall", "precision"]
+
+augmentation:
+  allowed: ["random_resized_crop", "rotation", "color_jitter", "gaussian_noise"]
+  disallowed: ["heavy_elastic", "label-breaking_geometry"]
+
+imbalance:
+  expected: likely
+
+notes:
+  - "原始标签含 Caries 1-6 子类，在标准化任务中可合并为龋齿。"
+  - "存在结构类(牙冠)与疾病类混合标注，建模时建议多头任务。"

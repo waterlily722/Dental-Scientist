@@ -1,0 +1,15 @@
+[
+  {
+    "run_name": "run_0",
+    "dataset_name": "dental_caries_classificationv3",
+    "primary_metric_name": "auc",
+    "best_val_primary": 0.8612754766600921,
+    "best_test_primary": 0.8586456278763971,
+    "best_epoch": 7.0,
+    "total_train_time": 76.13228368759155,
+    "test_accuracy": 0.8111888111888111,
+    "test_auc": 0.8586456278763971,
+    "test_f1": 0.8789237668161435,
+    "test_ece": 0.05647147952259836
+  }
+]

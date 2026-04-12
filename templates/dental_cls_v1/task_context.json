@@ -1,0 +1,95 @@
+{
+  "template": "dental_cls_v1",
+  "research_domain": "dental_imaging",
+  "research_mode": "task_driven_exploration",
+  "resource_profile": "low_resource_demo",
+  "task_name": "dental_caries_classificationv3",
+  "dataset_name": "dental_caries_classificationv3",
+  "task_spec": {
+    "task_name": "dental_caries_classificationv3",
+    "modality": "PA",
+    "task_type": "classification",
+    "label_level": "image-level",
+    "target_name": "caries_presence",
+    "primary_metric": "auroc",
+    "secondary_metrics": [
+      "auprc",
+      "f1",
+      "sensitivity",
+      "specificity"
+    ],
+    "recommended_preprocess_mode": "auto_equalize",
+    "recommended_image_size": 224,
+    "allowed_augmentations": [
+      "random_resized_crop",
+      "rotation",
+      "brightness_contrast",
+      "gaussian_noise"
+    ],
+    "disallowed_augmentations": [
+      "label-breaking_geometry"
+    ],
+    "imbalance_expected": "True",
+    "notes": [
+      "官方 splits.json 已包含类分布统计，可直接复用。"
+    ]
+  },
+  "data_paths": {
+    "data_root": "/oral_llm/xiweidai/AI-Scientist/data/dental_caries_classificationv3",
+    "split_file": "/oral_llm/xiweidai/AI-Scientist/benchmark/dental_caries_classificationv3/splits.json"
+  },
+  "split_counts": {
+    "train": 671,
+    "val": 143,
+    "test": 143
+  },
+  "class_distribution": {
+    "train": {
+      "healthy": 122,
+      "caries": 549
+    },
+    "val": {
+      "healthy": 26,
+      "caries": 117
+    },
+    "test": {
+      "healthy": 26,
+      "caries": 117
+    }
+  },
+  "baseline": {
+    "available": false,
+    "path": "/oral_llm/xiweidai/AI-Scientist/templates/dental_cls_v1/run_0/final_info.json",
+    "primary_metric_name": "",
+    "best_val_primary": null,
+    "best_test_primary": null
+  },
+  "recommended_defaults": {
+    "preprocess_mode": "auto_equalize",
+    "backbone_name": "efficientnet_b0",
+    "loss_name": "weighted_ce",
+    "use_pretrained": true
+  },
+  "allowed_modification_axes": [
+    "preprocessing",
+    "augmentation_policy",
+    "backbone_selection_within_existing_choices",
+    "loss_design",
+    "imbalance_handling",
+    "threshold_selection",
+    "calibration_analysis"
+  ],
+  "discouraged_axes": [
+    "changing_benchmark_split_protocol",
+    "using_external_data",
+    "task_specific_label_leakage",
+    "augmentations_forbidden_by_benchmark_policy",
+    "unbounded_model_scaling"
+  ],
+  "demo_success_criteria": [
+    "idea is clinically meaningful for dental imaging",
+    "idea can be implemented inside the current template",
+    "idea preserves benchmark fairness and reproducibility",
+    "idea fits a low-resource experimental budget"
+  ]
+}

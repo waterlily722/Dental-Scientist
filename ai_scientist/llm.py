@@ -9,6 +9,46 @@ import google.generativeai as genai
 from google.generativeai.types import GenerationConfig
 
 MAX_NUM_TOKENS = 4096
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 1200
+DEFAULT_OPENAI_MAX_RETRIES = 2
+DEFAULT_BACKOFF_MAX_TRIES = 5
+
+
+def _get_env_int(name, default):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        parsed = int(value)
+        if parsed < 1:
+            return default
+        return parsed
+    except ValueError:
+        return default
+
+
+def _get_env_float(name, default):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        parsed = float(value)
+        if parsed <= 0:
+            return default
+        return parsed
+    except ValueError:
+        return default
+
+
+OPENAI_REQUEST_TIMEOUT_SECONDS = _get_env_float(
+    "AI_SCIENTIST_OPENAI_TIMEOUT_SECONDS", DEFAULT_REQUEST_TIMEOUT_SECONDS
+)
+OPENAI_CLIENT_MAX_RETRIES = _get_env_int(
+    "AI_SCIENTIST_OPENAI_MAX_RETRIES", DEFAULT_OPENAI_MAX_RETRIES
+)
+BACKOFF_MAX_TRIES = _get_env_int(
+    "AI_SCIENTIST_BACKOFF_MAX_TRIES", DEFAULT_BACKOFF_MAX_TRIES
+)
 
 AVAILABLE_LLMS = [
     # Anthropic models
@@ -33,6 +73,14 @@ AVAILABLE_LLMS = [
     "o1-mini-2024-09-12",
     "o3-mini",
     "o3-mini-2025-01-31",
+    # Qwen models (DashScope OpenAI-compatible endpoint)
+    "qwen-plus",
+    "qwen-max",
+    "qwen-turbo",
+    "qwen3-32b",
+    "qwen3-235b-a22b",
+    "qwen3-max-2026-01-23",
+    "qwen3.6-plus-2026-04-02",
     # OpenRouter models
     "llama3.1-405b",
     # Anthropic Claude models via Amazon Bedrock
@@ -63,7 +111,11 @@ AVAILABLE_LLMS = [
 
 
 # Get N responses from a single message, used for ensembling.
-@backoff.on_exception(backoff.expo, (openai.RateLimitError, openai.APITimeoutError))
+@backoff.on_exception(
+    backoff.expo,
+    (openai.RateLimitError, openai.APITimeoutError, openai.APIConnectionError),
+    max_tries=BACKOFF_MAX_TRIES,
+)
 def get_batch_responses_from_llm(
         msg,
         client,
@@ -77,7 +129,7 @@ def get_batch_responses_from_llm(
     if msg_history is None:
         msg_history = []
 
-    if 'gpt' in model:
+    if 'gpt' in model or 'qwen' in model:
         new_msg_history = msg_history + [{"role": "user", "content": msg}]
         response = client.chat.completions.create(
             model=model,
@@ -139,7 +191,11 @@ def get_batch_responses_from_llm(
     return content, new_msg_history
 
 
-@backoff.on_exception(backoff.expo, (openai.RateLimitError, openai.APITimeoutError))
+@backoff.on_exception(
+    backoff.expo,
+    (openai.RateLimitError, openai.APITimeoutError, openai.APIConnectionError),
+    max_tries=BACKOFF_MAX_TRIES,
+)
 def get_response_from_llm(
         msg,
         client,
@@ -183,7 +239,7 @@ def get_response_from_llm(
                 ],
             }
         ]
-    elif 'gpt' in model:
+    elif 'gpt' in model or 'qwen' in model:
         new_msg_history = msg_history + [{"role": "user", "content": msg}]
         response = client.chat.completions.create(
             model=model,
@@ -326,26 +382,49 @@ def create_client(model):
         client_model = model.split("/")[-1]
         print(f"Using Vertex AI with model {client_model}.")
         return anthropic.AnthropicVertex(), client_model
+    elif "qwen" in model:
+        api_key = os.getenv("DASHSCOPE_API_KEY") or os.getenv("QWEN_API_KEY")
+        if api_key is None:
+            raise ValueError(
+                "Qwen model selected but no API key found. Set DASHSCOPE_API_KEY or QWEN_API_KEY."
+            )
+        base_url = os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+        print(f"Using Qwen OpenAI-compatible API with model {model}.")
+        return openai.OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=OPENAI_REQUEST_TIMEOUT_SECONDS,
+            max_retries=OPENAI_CLIENT_MAX_RETRIES,
+        ), model
     elif 'gpt' in model or "o1" in model or "o3" in model:
         print(f"Using OpenAI API with model {model}.")
-        return openai.OpenAI(), model
+        return openai.OpenAI(
+            timeout=OPENAI_REQUEST_TIMEOUT_SECONDS,
+            max_retries=OPENAI_CLIENT_MAX_RETRIES,
+        ), model
     elif model in ["deepseek-chat", "deepseek-reasoner", "deepseek-coder"]:
         print(f"Using OpenAI API with {model}.")
         return openai.OpenAI(
             api_key=os.environ["DEEPSEEK_API_KEY"],
-            base_url="https://api.deepseek.com"
+            base_url="https://api.deepseek.com",
+            timeout=OPENAI_REQUEST_TIMEOUT_SECONDS,
+            max_retries=OPENAI_CLIENT_MAX_RETRIES,
         ), model
     elif model == "llama3.1-405b":
         print(f"Using OpenAI API with {model}.")
         return openai.OpenAI(
             api_key=os.environ["OPENROUTER_API_KEY"],
-            base_url="https://openrouter.ai/api/v1"
+            base_url="https://openrouter.ai/api/v1",
+            timeout=OPENAI_REQUEST_TIMEOUT_SECONDS,
+            max_retries=OPENAI_CLIENT_MAX_RETRIES,
         ), "meta-llama/llama-3.1-405b-instruct"
     elif "gemini" in model:
         print(f"Using OpenAI API with {model}.")
         return openai.OpenAI(
             api_key=os.environ["GEMINI_API_KEY"],
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            timeout=OPENAI_REQUEST_TIMEOUT_SECONDS,
+            max_retries=OPENAI_CLIENT_MAX_RETRIES,
         ), model
     else:
         raise ValueError(f"Model {model} not supported.")

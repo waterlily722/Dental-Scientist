@@ -1,0 +1,21 @@
+Dental segmentation template.
+
+This template is a compact low-resource research sandbox for benchmarked dental segmentation.
+
+Focus on ideas that are clinically meaningful, easy to execute, and easy to compare against the baseline.
+
+Recommended idea families:
+- improving boundary quality and overlap metrics
+- radiograph-aware preprocessing for cleaner masks
+- imbalance-aware region losses
+- uncertainty estimation near ambiguous boundaries
+- lightweight segmentation trade-offs under fixed data and splits
+
+Avoid or treat as high-risk:
+- any change that alters benchmark fairness or split integrity
+- using external datasets, pseudo-labels, or external foundation models
+- label-breaking augmentations or unrealistic geometry
+- ideas that require major rewrites of the segmentation stack
+- ideas that depend on large compute budgets
+
+A strong contribution is not only a better overlap score. It can also be cleaner boundaries, better performance on small structures, or a clearer study of what improves dental mask quality and why.

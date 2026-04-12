@@ -1,0 +1,18 @@
+[
+  {
+    "Name": "quality_robustness_under_clinical_shift",
+    "Title": "Does quality-aware preprocessing improve robustness under clinical image shift?",
+    "Experiment": "Compare identity, grayscale, autocontrast, equalization, and auto-equalization preprocessing under safe augmentation policies for dental radiograph classification. Test whether radiograph-aware preprocessing improves the benchmark primary metric and reduces sensitivity to clinically realistic image-quality variation.",
+    "Interestingness": 8,
+    "Feasibility": 9,
+    "Novelty": 7
+  },
+  {
+    "Name": "calibration_and_thresholds_for_clinical_objectives",
+    "Title": "Can calibrated decision rules outperform better feature extractors for clinical dental classification?",
+    "Experiment": "Compare weighted cross-entropy, focal loss, and balanced softmax on the imbalanced dental classification benchmark, then test whether validation-based threshold selection and simple calibration analysis improve clinically relevant operating points such as recall, specificity, and calibration error more than backbone changes alone.",
+    "Interestingness": 8,
+    "Feasibility": 8,
+    "Novelty": 7
+  }
+]

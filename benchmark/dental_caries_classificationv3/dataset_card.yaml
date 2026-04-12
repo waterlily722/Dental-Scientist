@@ -1,0 +1,23 @@
+name: "dental_caries_classificationv3"
+data_root: "data/dental_caries_classificationv3"
+split_file: "benchmark/dental_caries_classificationv3/splits.json"
+
+modality: "PA"
+task_type: "classification"
+label_level: "image-level"
+target_name: "caries_presence"
+class_names: ["healthy", "caries"]
+
+clinical_goal: "基于牙片进行龋齿二分类筛查，优先保证高灵敏度。"
+primary_metric: "auroc"
+secondary_metrics: ["auprc", "f1", "sensitivity", "specificity"]
+
+augmentation:
+  allowed: ["random_resized_crop", "rotation", "brightness_contrast", "gaussian_noise"]
+  disallowed: ["label-breaking_geometry"]
+
+imbalance:
+  expected: yes
+
+notes:
+  - "官方 splits.json 已包含类分布统计，可直接复用。"

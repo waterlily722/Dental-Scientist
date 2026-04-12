@@ -16,6 +16,16 @@ idea_first_prompt = """{task_description}
 {code}
 </experiment.py>
 
+Template operating notes:
+'''
+{template_notes}
+'''
+
+Structured task context:
+```json
+{task_context_json}
+```
+
 Here are the ideas that you have already generated:
 
 '''
@@ -46,7 +56,9 @@ In <JSON>, provide the new idea in JSON format with the following fields:
 - "Feasibility": A rating from 1 to 10 (lowest to highest).
 - "Novelty": A rating from 1 to 10 (lowest to highest).
 
-Be cautious and realistic on your ratings.
+Keep the proposal implementable within the current template, low-resource budget, and benchmark protocol.
+The idea should still be clinically meaningful and mechanically plausible, but keep the JSON itself minimal.
+Be cautious and realistic on the ratings.
 This JSON will be automatically parsed, so ensure the format is precise.
 You will have {num_reflections} rounds to iterate on the idea, but do not need to use them all.
 """
@@ -70,6 +82,24 @@ NEW IDEA JSON:
 
 If there is nothing to improve, simply repeat the previous JSON EXACTLY after the thought and include "I am done" at the end of the thoughts but before the JSON.
 ONLY INCLUDE "I am done" IF YOU ARE MAKING NO MORE CHANGES."""
+
+
+def _read_optional_text(path: str, default: str = "") -> str:
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return handle.read().strip()
+    except FileNotFoundError:
+        return default
+
+
+def _read_optional_json(path: str, default: Dict[str, object] | None = None) -> Dict[str, object]:
+    fallback = {} if default is None else default
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        return payload if isinstance(payload, dict) else fallback
+    except (FileNotFoundError, json.JSONDecodeError):
+        return fallback
 
 
 # GENERATE IDEAS
@@ -108,6 +138,9 @@ def generate_ideas(
         prompt = json.load(f)
 
     idea_system_prompt = prompt["system"]
+    template_notes = _read_optional_text(osp.join(base_dir, "notes.txt"), default="No additional template notes.")
+    task_context = _read_optional_json(osp.join(base_dir, "task_context.json"), default={})
+    task_context_json = json.dumps(task_context, indent=2, ensure_ascii=False) if task_context else "{}"
 
     for _ in range(max_num_generations):
         print()
@@ -121,6 +154,8 @@ def generate_ideas(
                 idea_first_prompt.format(
                     task_description=prompt["task_description"],
                     code=code,
+                    template_notes=template_notes,
+                    task_context_json=task_context_json,
                     prev_ideas_string=prev_ideas_string,
                     num_reflections=num_reflections,
                 ),
@@ -201,6 +236,9 @@ def generate_next_idea(
         with open(osp.join(base_dir, "prompt.json"), "r") as f:
             prompt = json.load(f)
         idea_system_prompt = prompt["system"]
+        template_notes = _read_optional_text(osp.join(base_dir, "notes.txt"), default="No additional template notes.")
+        task_context = _read_optional_json(osp.join(base_dir, "task_context.json"), default={})
+        task_context_json = json.dumps(task_context, indent=2, ensure_ascii=False) if task_context else "{}"
 
         for _ in range(max_attempts):
             try:
@@ -215,6 +253,8 @@ def generate_next_idea(
                     idea_first_prompt.format(
                         task_description=prompt["task_description"],
                         code=code,
+                        template_notes=template_notes,
+                        task_context_json=task_context_json,
                         prev_ideas_string=prev_ideas_string,
                         num_reflections=num_reflections,
                     )
@@ -415,6 +455,17 @@ def check_idea_novelty(
     with open(osp.join(base_dir, "prompt.json"), "r") as f:
         prompt = json.load(f)
         task_description = prompt["task_description"]
+    template_notes = _read_optional_text(osp.join(base_dir, "notes.txt"), default="No additional template notes.")
+    task_context = _read_optional_json(osp.join(base_dir, "task_context.json"), default={})
+    context_prefix = ""
+    if task_context:
+        context_prefix = (
+            "\nTemplate operating notes:\n'''\n"
+            + template_notes
+            + "\n'''\n\nStructured task context:\n```json\n"
+            + json.dumps(task_context, indent=2, ensure_ascii=False)
+            + "\n```\n"
+        )
 
     for idx, idea in enumerate(ideas):
         if "novel" in idea:
@@ -440,7 +491,7 @@ def check_idea_novelty(
                     model=model,
                     system_message=novelty_system_msg.format(
                         num_rounds=max_num_iterations,
-                        task_description=task_description,
+                        task_description=task_description + context_prefix,
                         code=code,
                     ),
                     msg_history=msg_history,
