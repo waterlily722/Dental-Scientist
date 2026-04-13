@@ -26,6 +26,11 @@ Structured task context:
 {task_context_json}
 ```
 
+Lightweight medical evidence packet:
+```json
+{evidence_packet_json}
+```
+
 Here are the ideas that you have already generated:
 
 '''
@@ -141,6 +146,8 @@ def generate_ideas(
     template_notes = _read_optional_text(osp.join(base_dir, "notes.txt"), default="No additional template notes.")
     task_context = _read_optional_json(osp.join(base_dir, "task_context.json"), default={})
     task_context_json = json.dumps(task_context, indent=2, ensure_ascii=False) if task_context else "{}"
+    evidence_packet = _read_optional_json(osp.join(base_dir, "evidence_packet.json"), default={})
+    evidence_packet_json = json.dumps(evidence_packet, indent=2, ensure_ascii=False) if evidence_packet else "{}"
 
     for _ in range(max_num_generations):
         print()
@@ -156,6 +163,7 @@ def generate_ideas(
                     code=code,
                     template_notes=template_notes,
                     task_context_json=task_context_json,
+                    evidence_packet_json=evidence_packet_json,
                     prev_ideas_string=prev_ideas_string,
                     num_reflections=num_reflections,
                 ),
@@ -239,6 +247,8 @@ def generate_next_idea(
         template_notes = _read_optional_text(osp.join(base_dir, "notes.txt"), default="No additional template notes.")
         task_context = _read_optional_json(osp.join(base_dir, "task_context.json"), default={})
         task_context_json = json.dumps(task_context, indent=2, ensure_ascii=False) if task_context else "{}"
+        evidence_packet = _read_optional_json(osp.join(base_dir, "evidence_packet.json"), default={})
+        evidence_packet_json = json.dumps(evidence_packet, indent=2, ensure_ascii=False) if evidence_packet else "{}"
 
         for _ in range(max_attempts):
             try:
@@ -255,6 +265,7 @@ def generate_next_idea(
                         code=code,
                         template_notes=template_notes,
                         task_context_json=task_context_json,
+                        evidence_packet_json=evidence_packet_json,
                         prev_ideas_string=prev_ideas_string,
                         num_reflections=num_reflections,
                     )

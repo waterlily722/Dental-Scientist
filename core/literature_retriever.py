@@ -1,5 +1,7 @@
+import json
 import re
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import Any, Dict, List
 
 import requests
@@ -174,3 +176,38 @@ def build_evidence_packet(task_name: str, clinical_goal: str, modality: str, max
         modality=modality,
         max_results=max_results,
     )
+
+
+def render_evidence_packet_markdown(packet: Dict[str, Any]) -> str:
+    lines = [
+        "# Evidence Packet",
+        "",
+        f"- source: {packet.get('source', 'pubmed')}",
+        f"- query: {packet.get('query', '')}",
+        f"- count: {packet.get('count', 0)}",
+    ]
+    if packet.get("error"):
+        lines.extend(["", f"- error: {packet['error']}"])
+
+    for idx, item in enumerate(packet.get("results", []), start=1):
+        lines.extend(
+            [
+                "",
+                f"## Paper {idx}",
+                f"- title: {item.get('title', '')}",
+                f"- year: {item.get('year', '')}",
+                f"- pmid: {item.get('pmid', '')}",
+                f"- abstract_snippet: {item.get('abstract_snippet', '')}",
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
+def write_evidence_packet(output_dir: str | Path, packet: Dict[str, Any]) -> Dict[str, str]:
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    json_path = out_dir / "evidence_packet.json"
+    md_path = out_dir / "evidence_packet.md"
+    json_path.write_text(json.dumps(packet, indent=2, ensure_ascii=False), encoding="utf-8")
+    md_path.write_text(render_evidence_packet_markdown(packet), encoding="utf-8")
+    return {"json_path": str(json_path), "md_path": str(md_path)}

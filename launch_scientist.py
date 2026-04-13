@@ -22,7 +22,9 @@ from ai_scientist.perform_experiments import perform_experiments
 from ai_scientist.perform_review import load_paper, perform_improvement, perform_review
 from ai_scientist.perform_writeup import generate_latex, perform_writeup
 from core.dental_context import build_dental_task_context, write_dental_task_context
+from core.literature_retriever import build_evidence_packet, write_evidence_packet
 from core.registry import list_task_names
+from core.registry import resolve_task_spec
 from core.result_writer import extract_final_info_payload
 from core.run_manifest import create_run_manifest, finalize_manifest, update_stage, write_run_manifest
 from core.validators import post_experiment_validate, pre_experiment_validate
@@ -131,6 +133,11 @@ def parse_arguments():
         "--skip_review",
         action="store_true",
         help="Skip the review stage.",
+    )
+    parser.add_argument(
+        "--use_medical_retrieval",
+        action="store_true",
+        help="Before idea generation, retrieve a lightweight PubMed evidence packet and inject it into the idea prompt.",
     )
     return parser.parse_args()
 
@@ -313,6 +320,31 @@ def prepare_template_context(args, base_dir: str, task_name: str) -> Dict[str, A
         data_root_override=args.data_root,
         split_file_override=args.split_file,
     )
+
+
+def maybe_prepare_evidence_packet(args, base_dir: str, task_name: str) -> Dict[str, Any]:
+    if not args.use_medical_retrieval or args.skip_idea_generation:
+        return {}
+
+    try:
+        task_spec = resolve_task_spec(
+            root=Path(".").resolve(),
+            task_name=task_name,
+            data_root_override=args.data_root,
+            split_file_override=args.split_file,
+        )
+    except Exception as exc:
+        print(f"Skipping medical retrieval: unable to resolve task spec for '{task_name}': {exc}")
+        return {}
+
+    packet = build_evidence_packet(
+        task_name=task_spec.task_name,
+        clinical_goal=task_spec.clinical_goal,
+        modality=task_spec.modality,
+    )
+    artifact_paths = write_evidence_packet(base_dir, packet)
+    print(f"Prepared evidence packet at: {artifact_paths['json_path']}")
+    return packet
 
 
 def prepare_run_folder(
@@ -787,6 +819,7 @@ if __name__ == "__main__":
     task_name = resolve_default_task_name(args.experiment, args.task_name)
     ensure_required_baseline(base_dir, args.experiment)
     prepare_template_context(args, base_dir, task_name)
+    maybe_prepare_evidence_packet(args, base_dir, task_name)
 
     ideas = generate_ideas(
         base_dir,
