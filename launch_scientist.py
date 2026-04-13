@@ -23,6 +23,7 @@ from ai_scientist.perform_review import load_paper, perform_improvement, perform
 from ai_scientist.perform_writeup import generate_latex, perform_writeup
 from core.dental_context import build_dental_task_context, write_dental_task_context
 from core.registry import list_task_names
+from core.result_writer import extract_final_info_payload
 from core.run_manifest import create_run_manifest, finalize_manifest, update_stage, write_run_manifest
 from core.validators import post_experiment_validate, pre_experiment_validate
 
@@ -259,17 +260,17 @@ def load_baseline_snapshot(base_dir: str) -> Dict[str, Any]:
         }
 
     dataset_name = next(iter(baseline_wrapped.keys()))
-    means = baseline_wrapped.get(dataset_name, {}).get("means", {})
-    scorecard = means.get("scorecard", {}) if isinstance(means, dict) else {}
+    result_payload = extract_final_info_payload(baseline_wrapped, dataset_name)
+    scorecard = result_payload.get("scorecard", {}) if isinstance(result_payload, dict) else {}
     return {
         "available": True,
         "path": baseline_path,
         "dataset_name": dataset_name,
-        "primary_metric_name": scorecard.get("primary_metric_name", means.get("primary_metric_name", "")),
+        "primary_metric_name": scorecard.get("primary_metric_name", result_payload.get("primary_metric_name", "")),
         "best_val_primary": scorecard.get("best_val_primary"),
         "best_test_primary": scorecard.get("best_test_primary"),
-        "best_epoch": scorecard.get("best_epoch", means.get("best_epoch")),
-        "means": means if isinstance(means, dict) else {},
+        "best_epoch": scorecard.get("best_epoch", result_payload.get("best_epoch")),
+        "means": result_payload if isinstance(result_payload, dict) else {},
     }
 
 
@@ -545,9 +546,9 @@ def summarize_experiment_outcome(folder_name: str, baseline_snapshot: Dict[str, 
     last_run = run_dirs[-1]
     payload = load_json_file(str(last_run / "final_info.json"))
     dataset_name = next(iter(payload.keys()), "")
-    means = payload.get(dataset_name, {}).get("means", {}) if dataset_name else {}
-    if isinstance(means, dict):
-        scorecard = means.get("scorecard", {}) if isinstance(means.get("scorecard", {}), dict) else {}
+    result_payload = extract_final_info_payload(payload, dataset_name) if dataset_name else {}
+    if isinstance(result_payload, dict):
+        scorecard = result_payload.get("scorecard", {}) if isinstance(result_payload.get("scorecard", {}), dict) else {}
         summary["last_run"] = last_run.name
         summary["last_run_best_val_primary"] = scorecard.get("best_val_primary")
         summary["last_run_best_test_primary"] = scorecard.get("best_test_primary")

@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
+from core.result_writer import extract_final_info_payload
+
 
 def _safe_read_text(path: Path) -> str:
     try:
@@ -146,15 +148,15 @@ def post_experiment_validate(
             results.append(_result("fail", "missing_final_info", f"{run_dir.name} is missing final_info.json."))
             continue
         dataset_name = next(iter(payload.keys()), "")
-        means = payload.get(dataset_name, {}).get("means", {}) if dataset_name else {}
-        if not isinstance(means, dict):
+        result_payload = extract_final_info_payload(payload, dataset_name) if dataset_name else {}
+        if not isinstance(result_payload, dict):
             results.append(_result("fail", "malformed_final_info", f"{run_dir.name} final_info.json has an unexpected structure."))
             continue
 
         if primary_metric_name:
-            scorecard = means.get("scorecard", {}) if isinstance(means.get("scorecard", {}), dict) else {}
-            best_val_metrics = means.get("best_val_metrics", {}) if isinstance(means.get("best_val_metrics", {}), dict) else {}
-            best_test_metrics = means.get("best_test_metrics", {}) if isinstance(means.get("best_test_metrics", {}), dict) else {}
+            scorecard = result_payload.get("scorecard", {}) if isinstance(result_payload.get("scorecard", {}), dict) else {}
+            best_val_metrics = result_payload.get("best_val_metrics", {}) if isinstance(result_payload.get("best_val_metrics", {}), dict) else {}
+            best_test_metrics = result_payload.get("best_test_metrics", {}) if isinstance(result_payload.get("best_test_metrics", {}), dict) else {}
             has_metric = (
                 scorecard.get("primary_metric_name") == primary_metric_name
                 or primary_metric_name in best_val_metrics

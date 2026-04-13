@@ -22,6 +22,27 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
+def extract_final_info_payload(payload: Dict[str, Any], dataset_name: str | None = None) -> Dict[str, Any]:
+    if not isinstance(payload, dict) or not payload:
+        return {}
+
+    resolved_dataset_name = dataset_name or next(iter(payload.keys()), "")
+    if not resolved_dataset_name:
+        return {}
+
+    dataset_payload = payload.get(resolved_dataset_name, {})
+    if not isinstance(dataset_payload, dict):
+        return {}
+
+    if isinstance(dataset_payload.get("result"), dict):
+        return dataset_payload["result"]
+    if isinstance(dataset_payload.get("final_info_dict"), dict):
+        return dataset_payload["final_info_dict"]
+    if isinstance(dataset_payload.get("means"), dict):
+        return dataset_payload["means"]
+    return dataset_payload
+
+
 def write_run_outputs(
     out_dir: str,
     dataset_name: str,
@@ -47,12 +68,8 @@ def write_run_outputs(
 
     final_info_wrapped = {
         dataset_name: {
-            "means": final_info,
-            "stderrs": {
-                key: 0.0
-                for key, value in final_info.items()
-                if isinstance(value, (int, float)) and not isinstance(value, bool)
-            },
+            "result_type": "single_run",
+            "result": final_info,
             "final_info_dict": final_info,
         }
     }

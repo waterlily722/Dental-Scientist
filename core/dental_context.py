@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from core.registry import resolve_task_spec
+from core.result_writer import extract_final_info_payload
 from core.task_spec import infer_preprocess_mode, task_spec_summary
 
 
@@ -36,7 +37,7 @@ def _load_baseline_snapshot(base_dir: Path) -> Dict[str, Any]:
         }
 
     dataset_name = next(iter(baseline_wrapped.keys()))
-    payload = baseline_wrapped.get(dataset_name, {}).get("means", {})
+    payload = extract_final_info_payload(baseline_wrapped, dataset_name)
     scorecard = payload.get("scorecard", {}) if isinstance(payload, dict) else {}
     return {
         "available": True,
